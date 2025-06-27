@@ -1,3 +1,128 @@
+// Constants
+
+const You = '\n> You '
+const empty = '\u200B'
+
+// Text and context parsing stuff
+
+function extractSections(text, headings){
+  let result = []
+  let cursor = 0
+  
+  for(let i = 0; i < headings.length; i++){
+    let start = text.indexOf(headings[i], cursor)
+    if(start === -1){
+      result.push('')
+      continue
+    }
+    start += headings[i].length
+
+    let end = -1
+    for(let j = i + 1; j < headings.length && end === -1; j++){
+      end = text.indexOf(headings[j], start)
+    }
+
+    if(end === -1){
+      end = text.length
+    }
+    result.push(text.slice(start, end))
+    cursor = end
+  }
+
+  return result
+}
+
+function censor(text, actionstr){
+  for(let idx = text.indexOf(actionstr); -1 < idx; idx = text.indexOf(actionstr, idx)){
+    let jdx = text.indexOf('\n>', idx + 1)
+    let result = text.slice(0, idx)
+    if(-1 < jdx){
+      result += text.slice(jdx)
+    }
+    text = result
+  }
+  return text
+}
+
+const ctxHeadings = [
+  '',
+  'World Lore:\n',
+  'Story Summary:\n',
+  'Memories:\n',
+  'Recent Story:\n',
+  '[Author\'s note: ',
+  ']\n'
+]
+
+function splatContext(text){
+  let result = extractSections(text, ctxHeadings)
+
+  return { /* If one of the sections is empty, it is set to '' instead. */
+    PE: result[0], // Plot Essentials
+    SC: result[1], // Story Cards
+    SS: result[2], // Story Summary
+    MM: result[3], // Memories
+    RS: result[4], // Recent Story
+    AN: result[5], // Author's Note
+    LA: result[6], // Last Action
+    length: text.length
+  }
+}
+
+function unsplatContext(ctx){
+  return  ctxHeadings[0] + ctx.PE +
+          ctxHeadings[1] + ctx.SC +
+          ctxHeadings[2] + ctx.SS +
+          ctxHeadings[3] + ctx.MM +
+          ctxHeadings[4] + ctx.RS +
+          ctxHeadings[5] + ctx.AN +
+          ctxHeadings[6] + ctx.LA
+}
+
+function inject(ctx, payload, action = (ctx, payload) => { ctx.LA += payload }){
+  const prefix = '...' // AI doesn't seem to have much of an issue when this is put into the beginning of the recent story
+  let additions = prefix.length + payload.length
+  let overflow = (ctx.length + additions) - info.maxChars
+  if(0 < overflow){
+    ctx.RS = ctx.RS.slice(overflow)
+    ctx.RS = ctx.RS.slice(ctx.RS.search(/[\s]/g))
+    ctx.RS = prefix + ctx.RS
+  }
+  action(ctx, payload)
+  ctx.length = Object.values(ctx).reduce(
+    (accum, sum) => { return typeof sum !== 'string' ? accum : accum + sum.length }, 0
+  )
+  return ctx // For convenience
+}
+
+// Module Stuff
+
+if(state.modules == undefined){
+    state.modules = []
+}
+
+const modulesDo = (hooktype) => {
+    let mods
+    if(hooktype === 'Output'){
+        mods = [...state.modules].reverse()
+    }else{
+        mods = state.modules
+    }
+    
+    for(mod of mods){
+        eval?.(mod.Library)
+    }
+
+    let stop = false
+    for(mod of mods){
+        let hook = mod[hooktype]
+        if(hook){
+            ;({ text, stop = stop } = eval?.(hook));
+        }
+    }
+
+    return { text, stop }
+}
 
 // WEAPONS SYSTEM
 
@@ -95,13 +220,20 @@ function attack(attacker, weapon, defender){
 
 // MISCELLANEOUS ROUTINES
 
-function once(flag){
-  flag = flag + "_ONCE"
-  if(flag in Object.keys(state)){
-    state[flag] != state[flag]
-    return state[flag]
+function indexLast(str, substr){
+    let i = str.indexOf(substr)
+    if(i < 0){
+        return -1
+    }
+    return i + substr.length
+}
+
+function once(key){
+  key = key + '_ONCE'
+  if(key in state){
+    return false
   }else{
-    state[flag] = true
+    state[key] = true
     return true
   }
 }
@@ -116,28 +248,17 @@ function banner(){
     }
 }
 
-// Constants
-
-const playerDo = "\n> You "
-const empty = "\u200B"
-
-// Code execution & statefulness
-
-if(state.boot === undefined){
-    state.boot = []
-}
-
-function unset(n){
-    state.boot.splice(n, 1)
-}
-
-function bootup(){
-    for(s of state.boot){
-        eval(s)
+function arreq(a, b){
+    if(a.length !== b.length){
+        return false
     }
+    for(let i = 0; i < a.length; i++){
+        if(a[i] != b[i]){
+            return false
+        }
+    }
+    return true
 }
-
-bootup()
 
 // Inventory management
 
@@ -173,3 +294,33 @@ const map = {
 if(state.playerloc == undefined){
     state.playerloc = 'Center District'
 }
+
+// Player Health
+
+if(state.HP == undefined){
+    state.HP = 100
+}
+
+// Wallet  Code
+
+if(state.wallet === undefined){
+  state.wallet = 0
+}
+
+// Code execution & statefulness
+
+if(state.boot === undefined){
+    state.boot = []
+}
+
+function unset(n){
+    state.boot.splice(n, 1)
+}
+
+function bootup(){
+    for(s of state.boot){
+        eval(s)
+    }
+}
+
+bootup()
