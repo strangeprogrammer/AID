@@ -1,4 +1,8 @@
 const modifier = () => {
+  if(Object.values(state.character).some((e) => e === null) && history.slice(-1)[0] && history.slice(-1)[0].type === 'continue'){
+	  return { stop: true, text: '' }
+  }
+
   text = censor(text, '\n> You /') //Filter out chat commands and their results from AI input
   let ctx = splatContext(text)
   
