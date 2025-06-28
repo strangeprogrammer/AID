@@ -1,3 +1,4 @@
+
 let commands = {
   'js ': (args) => {
     state.overwrite = true
@@ -74,17 +75,6 @@ Object.assign(commands, {
   }
 })
 
-if(state.character === undefined){
-  state.character = {
-    Name:     null,
-//    Weapon: null,
-    Race:     null,
-    Gender:   null,
-    Class:    null,
-    Implant:  null
-  }
-}
-
 const characterQuestions = {
 //  Weapon: 'What is your primary weapon?',
   Race:     'What is your race?',
@@ -113,6 +103,23 @@ const optionsDescriptions = {
 }
 
 const modifier = () => {
+  state.overwrite = false
+  state.output = undefined
+  for(command of Object.keys(commands)){
+    let prefix = You + '/' + command
+    if(text.startsWith(prefix)){
+      let args = text.slice(prefix.length, text.length - 2)
+      let result = commands[command](args)
+      if(result == undefined){
+        break
+      }else{
+        return result
+      }
+    }
+  }
+
+  ;({ text, stop } = modulesDo('Input'));
+
   if(state.character.Name === null){
     const PEM = state.memory.context // PEM = Plot Essentials and Memory
     const field = 'Name: '
@@ -163,23 +170,8 @@ Ripperdoc: All done. Take it easy, yeah? Don’t wanna see ya any time soon.
 ${state.character.Name} pays doc 20k credits and picks up weapon.`
     return { text }
   }
-
-  state.overwrite = false
-  state.output = undefined
-  for(command of Object.keys(commands)){
-    let prefix = You + '/' + command
-    if(text.startsWith(prefix)){
-      let args = text.slice(prefix.length, text.length - 2)
-      let result = commands[command](args)
-      if(result == undefined){
-        break
-      }else{
-        return result
-      }
-    }
-  }
   
-  return modulesDo('Input')
+  return { text, stop }
 }
 
 modifier()
