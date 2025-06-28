@@ -1,3 +1,4 @@
+
 // Constants
 
 const You = '\n> You '
@@ -305,6 +306,19 @@ if(state.HP == undefined){
 
 if(state.wallet === undefined){
   state.wallet = 0
+}
+
+// Character creation
+
+if(state.character === undefined){
+  state.character = {
+    Name:     null,
+//    Weapon: null,
+    Race:     null,
+    Gender:   null,
+    Class:    null,
+    Implant:  null
+  }
 }
 
 // Code execution & statefulness
