@@ -1,7 +1,15 @@
+// Configuration Options
+
+if(state.useMods == undefined){
+    state.useMods = false // Set to true or false depending upon your desired startup behavior
+}
 
 // Constants
 
-const You = '\n> You '
+const Do = '\n> You '
+const Say = '\n> You say "'
+const Response = '\n> /'
+let You
 const empty = '\u200B'
 
 // Text and context parsing stuff
@@ -103,121 +111,173 @@ if(state.modules == undefined){
 }
 
 const modulesDo = (hooktype) => {
+  let stop = false
+  
+  if(state.useMods){
     let mods
     if(hooktype === 'Output'){
-        mods = [...state.modules].reverse()
+      mods = [...state.modules].reverse()
     }else{
-        mods = state.modules
+      mods = state.modules
     }
     
     for(mod of mods){
+      if(mod.Enabled){
         eval?.(mod.Library)
+      }
     }
 
-    let stop = false
     for(mod of mods){
+      if(mod.Enabled){
         let hook = mod[hooktype]
         if(hook){
-            ;({ text, stop = stop } = eval?.(hook));
+          ;({ text, stop = stop } = eval?.(hook));
         }
+      }
     }
+  }
 
-    return { text, stop }
+  return { text, stop }
 }
 
-// WEAPONS SYSTEM
-
-// combat entities look like this:
-/*
-var entity = {
-    health: 9001,
-    weapons: {"fists": fists,
-        "random weapon 1" with random ammo,
-        "random weapon 2" with random ammo},
-    armors: ["random armor 1", "random armor 2"]
+const modTokenSaver = (s) => {
+    state.overwrite = true
+    state.output = empty
+    return { text: s }
 }
-*/
 
-/*
-function rand(a, b){
-    if(b < a){
-        [a, b] = [b, a]
+const uponMod = (name, cmd, action) => {
+  name = name.trim()
+  let sought = state.modules.findIndex((mod) => mod.Module === name)
+  if(-1 < sought){
+    return modTokenSaver(action(sought) || Response + cmd + ' \'' + name + '\' successful.\n')
+  }else{
+    return modTokenSaver(Response + 'module ' + name + ' not found.\n')
+  }
+}
+
+const makeMod = (s) => {
+  let [
+    Module,
+    Enabled,
+    Library,
+    Input,
+    Context,
+    Output
+  ] = extractSections(s, [
+    '// Module: ',
+    '// Initially: ',
+    '// Library',
+    '// Input',
+    '// Context',
+    '// Output'
+  ]);
+  Module = Module.trim()
+  let newMod = { Module, Enabled: Enabled.trim() === 'true', Library, Input, Context, Output }
+  state.modules.push(newMod)
+  return newMod
+}
+
+// Chat Commands
+
+let commands = {
+  'help': {
+    desc: 'Display (basic) descriptions of all chat commands.',
+    fn: (garbage) => {
+    state.overwrite = true
+    state.output =  Object.entries(commands).map(([name, cmd]) =>
+      '/' + name + ' : ' + cmd.desc
+    ).join('\n') + '\n'
+  }},
+  'js ': {
+    desc: 'Evaluate a JavaScript expression and return the result.',
+    fn: (args) => {
+    state.overwrite = true
+    state.output = eval?.(args)
+  }}, 'set ': {
+    desc: 'Set a variable (currently, only constants are supported) to be set before any other code runs.',
+    fn:(args) => {
+    state.overwrite = true
+    state.output = empty
+    let space = args.indexOf(' ')
+    let k = args.slice(0, space)
+    let v = args.slice(space + 1)
+    state.boot.push('globalThis.' + k + ' = ' + v)
+  }}, 'lsmods': {
+    desc: 'List all modules in execution order and all enabled/disabled states.',
+    fn: (garbage) => {
+    let result = 'Mods: ' + (state.useMods ? 'Enabled' : 'Disabled') + '\n'
+    let mods = state.modules
+    for(let i = 0; i < mods.length; i++){
+      result += String(i) + ': ' + mods[i].Module + ': ' + (mods[i].Enabled ? 'Enabled' : 'Disabled') + '\n'
     }
-    return Math.random() * (a - b) + b
-}
+    // result = result.trimEnd()
+    state.overwrite = true
+    state.output = result
+  }}, 'lsmod ': {
+    desc: 'Show the enable/disable state of a specific module.',
+    fn: (name) => {
+    return uponMod(name, 'lsmod', (sought) => {
+      return Response + name + ': ' + (state.modules[sought].enabled ? 'Enabled' : 'Disabled') + '\n'
+    })
+  }}, 'modson': {
+    desc: 'Enable mods globally.',
+    fn: (args) => {
+    state.overwrite = true
+    state.output = empty
+    state.useMods = true
+    return { text: You + '/modson successfully.\n' }
+  }}, 'modsoff': {
+    desc: 'Disable mods globally.',
+    fn: (args) => {
+    state.overwrite = true
+    state.output = empty
+    state.useMods = false
+    return { text: You + '/modsoff successfully.\n' }
+  }}, 'addmod ': {
+    desc: 'Add a new module to the end of the modules list via a \'do\' action.',
+    fn: (args) => {
+    return modTokenSaver(Response + 'mkmod \'' + makeMod(args).Module + '\' successful.')
+  }}, 'modon ': {
+    desc: 'Enable specific mods.',
+    fn: (names) => {
+    names = names.split(' ')
+    let missing
+    if(missing = names.find(
+      (name) => !state.modules.map((mod) => mod.Module).includes(name)
+    )){
+      return { text: Response + 'module ' + name + ' not found.\n' }
+    }else{
+      for(name of names){
+        state.modules.find((mod) => mod.Module === name).Enabled = true
+      }
 
-function irand(a, b){return Math.floor(rand(a, b))}
-
-function Weapon(name, damageMin, damageMax, ammoMin, ammoMax){
-    return [name, { damageMin, damageMax, ammoMin, ammoMax }]
-}
-
-function Armor(name, blockMin, blockMax){
-    return { name, blockMin, blockMax }
-}
-
-var weaponPool = Object.fromEntries([
-    Weapon("fists", 2, 4, -1, -1),
-    Weapon("knife", 3, 8, -1, -1),
-    Weapon("gun", 6, 7, 4, 12),
-    Weapon("grenade", 10, 10, 1, 2)
-])
-
-var armorPool = [
-    Armor("shirt", 0, 1),
-    Armor("codpiece", 1, 5),
-    Armor("cape", 0, 3)
-]
-
-function makeWeapon(weaponName = null){
-    
-    if(weaponName == null){
-        // Need two lines here since dictionaries don't have the '.length' property
-        var wp = Object.keys(weaponPool)
-        weaponName = wp[Math.floor(Math.random() * (wp.length - 1)) + 1]
+      return modTokenSaver(Response + 'modon [' + names.join(', ') + '] successful.\n')
     }
-    
-    weapon = { ... weaponPool[weaponName] }
-    weapon.ammo = Math.floor(rand(weapon.ammoMin, weapon.ammoMax + 1))
-    delete weapon.ammoMin
-    delete weapon.ammoMax
-    
-    return [weaponName, weapon]
-}
+  }}, 'modoff ': {
+    desc: 'Disable specific mods.',
+    fn: (names) => {
+    names = names.split(' ')
+    let missing
+    if(missing = names.find(
+      (name) => !state.modules.map((mod) => mod.Module).includes(name)
+    )){
+      return { text: Response + 'module ' + name + ' not found.\n' }
+    }else{
+      for(name of names){
+        state.modules.find((mod) => mod.Module === name).Enabled = false
+      }
 
-function makeArmor(){
-    return { ... armorPool[Math.floor(Math.random() * armorPool.length)] }
-}
-
-function makeEnemy(player){
-    return {
-        health: Math.floor(player.health * rand(0.85, 1.15)),
-        weapons: Object.fromEntries([makeWeapon("fists"), makeWeapon()]),
-        armors: [makeArmor()]
+      return modTokenSaver(Response + 'modoff ' + names.join(' ') + ' successful.\n')
     }
+  }}, 'rmmod ': {
+    desc: 'Remove a module from the modules list.',
+    fn: (name) => {
+    return uponMod(name, 'rmmod', (sought) => {
+        state.modules.splice(sought, 1)
+    })
+  }}
 }
-
-function attack(attacker, weapon, defender){
-    weapon = attacker.weapons[weapon]
-     if(0 != weapon.ammo){ // Sentinel value of infinite ammo items is -1
-         if(0 < weapon.ammo){
-             weapon.ammo--
-         }
-         var damage = irand(weapon.damageMin, weapon.damageMax + 1)
-         var block = defender.armors.map(
-             (armor) => irand(armor.blockMin, armor.blockMax)
-         ).reduce(
-             (a, b) => a + b,
-             0
-         )
-         damage = Math.max(0, damage - block)
-         defender.health -= damage
-         return true
-     }
-     return false
-}
-
-*/
 
 // MISCELLANEOUS ROUTINES
 
@@ -239,16 +299,6 @@ function once(key){
   }
 }
 
-function banner(){
-    if(info.actionCount == 0){
-        log("------------------------")
-        log("------------------------")
-        log("-----NEW ADVENTURE------")
-        log("------------------------")
-        log("------------------------")
-    }
-}
-
 function arreq(a, b){
     if(a.length !== b.length){
         return false
@@ -259,66 +309,6 @@ function arreq(a, b){
         }
     }
     return true
-}
-
-// Inventory management
-
-if(state.inventory === undefined){
-  state.inventory = []
-}
-
-function cleaninventory(){
-    //For when the player rewinds the history to a point before they acquired certain items.
-    const si = state.inventory
-    for(let i = 0; i < si.length; i++){
-        if(history.length < si[i].birth){
-            si.splice(i, 1)
-            i--
-            continue
-        }
-    }
-}
-
-cleaninventory()
-
-// Mapping and Location
-
-const map = {
-    'Slums District': ['Center District', 'Ghost District', 'Hollow District'],
-    'Eden District': ['Center District'],
-    'Rustback District': ['Center District', 'Hollow District'],
-    'Center District': ['Rustback District', 'Eden District', 'Hollow District', 'Slums District'],
-    'Hollow District': ['Center District', 'Slums District', 'Rustback District'],
-    'Ghost District': ['Slums District']
-}
-
-if(state.playerloc == undefined){
-    state.playerloc = 'Center District'
-}
-
-// Player Health
-
-if(state.HP == undefined){
-    state.HP = 100
-}
-
-// Wallet  Code
-
-if(state.wallet === undefined){
-  state.wallet = 0
-}
-
-// Character creation
-
-if(state.character === undefined){
-  state.character = {
-    Name:     null,
-//    Weapon: null,
-    Race:     null,
-    Gender:   null,
-    Class:    null,
-    Implant:  null
-  }
 }
 
 // Code execution & statefulness
@@ -333,8 +323,32 @@ function unset(n){
 
 function bootup(){
     for(s of state.boot){
-        eval(s)
+        eval?.(s)
     }
 }
 
 bootup()
+
+if(once('InlineModules')){
+  makeMod((() => {
+    // Module: Dog_Example
+    // Initially: false
+
+    // Input
+
+    const modifier = (text) => {
+      return { text: text.replace('You', 'You and your dog') }
+    }
+  }).toString())
+
+  makeMod((() => {
+    // Module: Ferret_Example
+    // Initially: false
+
+    // Input
+
+    const modifier = (text) => {
+      return { text: text.replace('You', 'You and your ferret') }
+    }
+  }).toString())
+}
