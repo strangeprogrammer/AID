@@ -61,7 +61,7 @@ Object.assign(commands, {
   }, 'credits': (args) => {
     state.overwrite = true
     state.output = state.wallet.toString()
-    console.log(state.otuput)
+    console.log(state.output)
   }, 'loc ': (destination) => {
     let source = map[state.playerloc]
     if(source.includes(destination)){// If can be reached by the player
