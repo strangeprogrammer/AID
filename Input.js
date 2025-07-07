@@ -145,29 +145,38 @@ const modifier = () => {
   for(const [k, v] of Object.entries(state.character)){
     if(v === null){
       state.overwrite = true
-      state.output = '\n\nInput your ' + k.toLowerCase() + ' here (options: ' + characterOptions[k].join(', ') + '): '
+      let descriptions = optionsDescriptions[k]
+      if(descriptions){
+        state.output = `\n${characterQuestions[k]}
+
+${k} Options:
+`
+        for(const [option, desc] of Object.entries(descriptions)){
+          state.output += option + ': ' + desc + '\n'
+        }
+      }else{
+        state.output = '\n' + characterQuestions[k]
+        if(!arreq(characterOptions[k], [])){
+          state.output += ' (options: ' + characterOptions[k].join(', ') + '):\n'
+        }
+      }
       state.requesting = k
       return { text }
     }
   }
 
   if(once('opening')){
-    state.overwrite = true
-    state.output = `Location: Center District, Ripperdoc office
+    text += `\n\nLocation: Center District, Ripperdoc office
 
 Docs Assistant: Alright, checking you in. Name? ${state.character.Name}
 Assistant: Cybernetic classification? ${state.character.Class}
 Assistant: Door on your right—take it all the way down.
 
 Ripperdoc: ${state.character.Name}, huh? Nice meetin' ya, kid. Have a seat. What can I do for ya?
-"${state.character.Implant}"
-He hits you with sleep gas. You start drifting.
-
+"${state.character.Implant}" He hits you with sleep gas. You start drifting.
 — Three hours later —
-
 Ripperdoc: All done. Take it easy, yeah? Don’t wanna see ya any time soon.
-
-${state.character.Name} pays doc 20k credits and picks up weapon.`
+You pay the Ripperdoc 20k credits and pick up your weapon.`
     return { text }
   }
   
