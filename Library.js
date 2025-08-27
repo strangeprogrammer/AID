@@ -394,7 +394,7 @@ if(once('InlineModules')){
 
     // Mapping and Location
 
-    const map = {
+    const world = {
         'Slums District': ['Center District', 'Ghost District', 'Hollow District'],
         'Eden District': ['Center District'],
         'Rustback District': ['Center District', 'Hollow District'],
@@ -431,6 +431,55 @@ if(once('InlineModules')){
         Implant:  null
       }
     }
+
+    if(state.cooldown === undefined){
+      state.cooldown = -1
+    }
+
+    Object.assign(commands, {
+      /*'buy ': (item) => {
+        state.inventory.push({
+          item,
+          birth: history.length
+        })
+      }, 'sell ': (args) => {
+        console.log(args)
+      }, 'shop ': (args) => {
+        state.overwrite = true
+        state.output = args
+        console.log(state.output)
+      }, 'credits': (args) => {
+        state.overwrite = true
+        state.output = state.wallet.toString()
+        console.log(state.otuput)
+      },*/ 'loc ': (destination) => {
+        //Set the player's location
+        if(cooldown < info.actionCount){
+          let cooldown = info.actionCount + 5
+
+          let source = world[state.playerloc]
+          if(source.includes(destination)){// If can be reached by the player
+            state.playerloc = destination
+          }else{
+            state.message = 'Error: ' + destination + ' can\'t be reached from ' + state.playerloc
+            state.overwrite = true
+            state.output = empty
+            return { text: empty }
+          }
+        }else{
+          state.message = 'Error: You must wait ' + (cooldown - info.actionCount) + 'more turns before changing location.'
+          state.overwrite = true
+          state.output = empty
+          return { text: empty }
+        }
+      }, 'locs': (garbage) => {
+        state.overwrite = true
+        state.output = Object.keys(world).join('\n')
+      }, 'loc?': (garbage) => {
+        state.overwrite = true
+        state.output = state.playerloc
+      }
+    })
 
     // Input
     if(state.character.Name === null){
