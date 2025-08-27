@@ -9,7 +9,7 @@ if(state.useMods == undefined){
 const Do = '\n> You '
 const Say = '\n> You say "'
 const Response = '\n> /'
-let You
+let You = Do
 const empty = '\u200B'
 
 // Text and context parsing stuff
@@ -163,14 +163,16 @@ const makeMod = (s) => {
     Library,
     Input,
     Context,
-    Output
+    Output,
+    garbage
   ] = extractSections(s, [
     '// Module: ',
     '// Initially: ',
     '// Library',
     '// Input',
     '// Context',
-    '// Output'
+    '// Output',
+    '// End'
   ]);
   Module = Module.trim()
   let newMod = { Module, Enabled: Enabled.trim() === 'true', Library, Input, Context, Output }
@@ -322,9 +324,9 @@ function unset(n){
 }
 
 function bootup(){
-    for(s of state.boot){
-        eval?.(s)
-    }
+  for(s of state.boot){
+      eval?.(s)
+  }
 }
 
 bootup()
@@ -339,6 +341,8 @@ if(once('InlineModules')){
     const modifier = (text) => {
       return { text: text.replace('You', 'You and your dog') }
     }
+
+    // End
   }).toString())
 
   makeMod((() => {
@@ -350,5 +354,7 @@ if(once('InlineModules')){
     const modifier = (text) => {
       return { text: text.replace('You', 'You and your ferret') }
     }
+
+    // End
   }).toString())
 }
