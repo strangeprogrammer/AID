@@ -813,7 +813,7 @@ if(once('InlineModules')){
     //  Weapon: null,
       Race:   ['human', 'android'],
       Gender: [],
-      Class:  ['netrunner', 'bouncer', 'police officer', 'fixer', 'first gen', 'corporate thug', 'rich citizen', 'rogue ai'],
+      Class:  ['netrunner', 'bouncer', 'police officer', 'fixer', 'first gen', 'corporate thug', 'rich citizen', 'rogue ai', 'nomad', 'cryotech'],
       Implant: []
     }
 
@@ -826,7 +826,9 @@ if(once('InlineModules')){
         'first gen':      'First generation android',
         'corporate thug': 'Hired merc for Corporate affairs',
         'rich citizen':   'High wealth and status low combat ability',
-        'rogue ai':       'Newly Self aware AI'
+        'rogue ai':       'Newly Self aware AI',
+        'nomad':          'Outlands Wanderer',
+        'cryotech':       'Cryo Minipulator' 
       }
     }
 
