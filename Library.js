@@ -142,7 +142,11 @@ const modulesDo = (hooktype) => {
         let hook = mod[hooktype]
         if(hook){
 //          ;({ text, stop = stop } = correctedEval(mod.Library + ';' + hook, `In module ${mod.Module}'s ${hooktype} hook`));
-          ;({ text, stop = stop } = eval?.(mod.Library + ';' + hook, `In module ${mod.Module}'s ${hooktype} hook`));
+          if(hooktype == 'Preload'){
+            eval?.(mod.Library.trim() + ';' + hook.trim(), `In module ${mod.Module}'s ${hooktype} hook`)
+          }else{
+            ;({ text, stop = stop } = eval?.(mod.Library.trim() + ';' + hook.trim(), `In module ${mod.Module}'s ${hooktype} hook`));
+          }
         }
       }
     }
@@ -171,6 +175,7 @@ const makeMod = (s) => {
   let [
     Module,
     Enabled,
+    Preload,
     Library,
     Input,
     Context,
@@ -179,6 +184,7 @@ const makeMod = (s) => {
   ] = extractSections(s, [
     '// Module: ',
     '// Initially: ',
+    '// Preload',
     '// Library',
     '// Input',
     '// Context',
@@ -186,19 +192,19 @@ const makeMod = (s) => {
     '// End'
   ]);
   Module = Module.trim()
-  let newMod = { Module, Enabled: Enabled.trim() === 'true', Library, Input, Context, Output }
+  let newMod = { Module, Enabled: Enabled.trim() === 'true', Preload, Library, Input, Context, Output }
   state.modules.push(newMod)
   return newMod
 }
 
 // Chat Commands
 
-let commands = {
+var commands = {
   'help': {
     desc: 'Display (basic) descriptions of all chat commands.',
     fn: (garbage) => {
     state.overwrite = true
-    state.output =  Object.entries(commands).map(([name, cmd]) =>
+    state.output = Object.entries(commands).map(([name, cmd]) =>
       '/' + name + ' : ' + cmd.desc
     ).join('\n') + '\n'
   }},
@@ -231,7 +237,7 @@ let commands = {
     desc: 'Show the enable/disable state of a specific module.',
     fn: (name) => {
     return uponMod(name, 'lsmod', (sought) => {
-      return Response + name + ': ' + (state.modules[sought].enabled ? 'Enabled' : 'Disabled') + '\n'
+      return Response + name + ': ' + (state.modules[sought].Enabled ? 'Enabled' : 'Disabled') + '\n'
     })
   }}, 'modson': {
     desc: 'Enable mods globally.',
@@ -304,12 +310,9 @@ function indexLast(str, substr){
 
 function once(key){
   key = key + '_ONCE'
-  if(key in state){
-    return false
-  }else{
-    state[key] = true
-    return true
-  }
+  var retval = (state[key] == undefined) || state[key]
+  state[key] = false
+  return retval
 }
 
 function arreq(a, b){
@@ -372,6 +375,61 @@ if(once('InlineModules')){
   makeMod((() => {
     // Module: NC
     // Initially: true
+    // Preload
+    if(state.cooldown === undefined){
+      state.cooldown = -1
+    }
+
+    Object.assign(commands, {
+      /*'buy ': (item) => {
+        state.inventory.push({
+          item,
+          birth: history.length
+        })
+      }, 'sell ': (args) => {
+        console.log(args)
+      }, 'shop ': (args) => {
+        state.overwrite = true
+        state.output = args
+        console.log(state.output)
+      }, 'credits': (args) => {
+        state.overwrite = true
+        state.output = state.wallet.toString()
+        console.log(state.otuput)
+      },*/ 'loc ': {
+        desc: 'Set the player\'s location (cooldown of 5 turns).',
+        fn: (destination) => {
+        //Set the player's location
+        if(state.cooldown < info.actionCount){
+          state.cooldown = info.actionCount + 5
+
+          let source = world[state.playerloc]
+          if(source.includes(destination)){// If can be reached by the player
+            state.playerloc = destination
+          }else{
+            state.message = 'Error: ' + destination + ' can\'t be reached from ' + state.playerloc
+            state.overwrite = true
+            state.output = empty
+            return { text: empty }
+          }
+        }else{
+          state.message = 'Error: You must wait ' + (state.cooldown - info.actionCount) + 'more turns before changing location.'
+          state.overwrite = true
+          state.output = empty
+          return { text: empty }
+        }
+      }}, 'locs': {
+        desc: 'Show available locations for travel.',
+        fn: (garbage) => {
+        state.overwrite = true
+        state.output = Object.keys(world).join('\n')
+      }}, 'loc?': {
+        desc: 'Show the player\'s current location.',
+        fn: (garbage) => {
+        state.overwrite = true
+        state.output = state.playerloc
+      }}
+    })
     // Library
     //DO NOT CHANGE ANYTHING HERE (Exept the conflict & calming word strings if you want to make them better)
     const conflictWords = ["attack", "stab", "destroy", "break", "steal", "ruin", "burn", "smash", "sabotage", "disrupt", "vandalize", "overthrow", "assassinate", "plunder", "rob", "ransack", "raid", "hijack", "detonate", "explode", "ignite", "collapse", "demolish", "shatter", "strike", "slap", "obliterate", "annihilate", "corrupt", "infect", "poison", "curse", "hex", "summon", "conjure", "mutate", "provoke", "riot", "revolt", "mutiny", "rebel", "resist", "intimidate", "blackmail", "manipulate", "brainwash", "lie", "cheat", "swindle", "disarm", "fire", "hack", "overload", "flood", "drown", "rot", "dissolve", "slaughter", "terminate", "execute", "drama", "conflict", "evil", "kill", "slay", "defeat", "fight", "doom", "slice", "pain", "dying", "die", "perish", "blood"]
@@ -401,12 +459,12 @@ if(once('InlineModules')){
     // Mapping and Location
 
     const world = {
-        'Slums District': ['Center District', 'Ghost District', 'Hollow District'],
-        'Eden District': ['Center District'],
-        'Rustback District': ['Center District', 'Hollow District'],
-        'Center District': ['Rustback District', 'Eden District', 'Hollow District', 'Slums District'],
-        'Hollow District': ['Center District', 'Slums District', 'Rustback District'],
-        'Ghost District': ['Slums District']
+      'Slums District': ['Center District', 'Ghost District', 'Hollow District'],
+      'Eden District': ['Center District'],
+      'Rustback District': ['Center District', 'Hollow District'],
+      'Center District': ['Rustback District', 'Eden District', 'Hollow District', 'Slums District'],
+      'Hollow District': ['Center District', 'Slums District', 'Rustback District'],
+      'Ghost District': ['Slums District']
     }
 
     if(state.playerloc == undefined){
@@ -437,55 +495,6 @@ if(once('InlineModules')){
         Implant:  null
       }
     }
-
-    if(state.cooldown === undefined){
-      state.cooldown = -1
-    }
-
-    Object.assign(commands, {
-      /*'buy ': (item) => {
-        state.inventory.push({
-          item,
-          birth: history.length
-        })
-      }, 'sell ': (args) => {
-        console.log(args)
-      }, 'shop ': (args) => {
-        state.overwrite = true
-        state.output = args
-        console.log(state.output)
-      }, 'credits': (args) => {
-        state.overwrite = true
-        state.output = state.wallet.toString()
-        console.log(state.otuput)
-      },*/ 'loc ': (destination) => {
-        //Set the player's location
-        if(cooldown < info.actionCount){
-          let cooldown = info.actionCount + 5
-
-          let source = world[state.playerloc]
-          if(source.includes(destination)){// If can be reached by the player
-            state.playerloc = destination
-          }else{
-            state.message = 'Error: ' + destination + ' can\'t be reached from ' + state.playerloc
-            state.overwrite = true
-            state.output = empty
-            return { text: empty }
-          }
-        }else{
-          state.message = 'Error: You must wait ' + (cooldown - info.actionCount) + 'more turns before changing location.'
-          state.overwrite = true
-          state.output = empty
-          return { text: empty }
-        }
-      }, 'locs': (garbage) => {
-        state.overwrite = true
-        state.output = Object.keys(world).join('\n')
-      }, 'loc?': (garbage) => {
-        state.overwrite = true
-        state.output = state.playerloc
-      }
-    })
 
     // Input
     if(state.character.Name === null){
