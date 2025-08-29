@@ -155,10 +155,10 @@ const modulesDo = (hooktype) => {
   return { text, stop }
 }
 
-const modTokenSaver = (s) => {
+const modTokenSaver = (text) => {
     state.overwrite = true
     state.output = empty
-    return { text: s }
+    return { text }
 }
 
 const uponMod = (name, cmd, action) => {
@@ -295,6 +295,13 @@ var commands = {
     return uponMod(name, 'rmmod', (sought) => {
         state.modules.splice(sought, 1)
     })
+  }}, 'reloadmods': {
+    desc: 'Reload all built-in modules.',
+    fn: (garbage) => {
+    state.modules.length = 0
+    state['InlineModules_ONCE'] = true
+    state.overwrite = true
+    state.output = empty
   }}
 }
 
@@ -856,6 +863,11 @@ if(once('InlineModules')){
       }
 
       for(const [k, v] of Object.entries(state.character)){
+        if(k != 'Name' && characterQuestions[k] === undefined){
+          console.log(k)
+          // There is a character attribute for which there is no corresponding question, so either remove the attribute or add a question
+          throw new Error('Character question error!')
+        }
         if(v === null){
           state.overwrite = true
           let descriptions = optionsDescriptions[k]
@@ -878,17 +890,18 @@ if(once('InlineModules')){
       if(once('opening')){
         text += `\n\nLocation: Center District, Ripperdoc office
 
-    Docs Assistant: Alright, checking you in. Name? ${state.character.Name}
-    Assistant: Cybernetic classification? ${state.character.Class}
-    Assistant: Door on your right—take it all the way down.
+        Docs Assistant: Alright, checking you in. Name? ${state.character.Name}
+        Assistant: Cybernetic classification? ${state.character.Class}
+        Assistant: Door on your right—take it all the way down.
 
-    Ripperdoc: ${state.character.Name}, huh? Nice meetin' ya, kid. Have a seat. What can I do for ya?
-    "${state.character.Implant}" He hits you with sleep gas. You start drifting.
-    — Three hours later —
-    Ripperdoc: All done. Take it easy, yeah? Don’t wanna see ya any time soon.
-    You pay the Ripperdoc 20k credits and pick up your weapon.`
+        Ripperdoc: ${state.character.Name}, huh? Nice meetin' ya, kid. Have a seat. What can I do for ya?
+        "${state.character.Implant}" He hits you with sleep gas. You start drifting.
+        — Three hours later —
+        Ripperdoc: All done. Take it easy, yeah? Don’t wanna see ya any time soon.
+        You pay the Ripperdoc 20k credits and pick up your weapon.`
         return { text }
       }
+      return { text }
     }
 
     const imodifier = (text) => {
