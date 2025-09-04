@@ -2,7 +2,7 @@ const modifier = () => {
   if(state.overwrite){
     state.overwrite = false
     if(typeof state.output == 'string'){
-      return { text: state.output }
+      return { text: state.output || empty }
     }else if(state.output == undefined){
       return { text: 'undefined' }
     }else{

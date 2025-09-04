@@ -1,4 +1,5 @@
 const modifier = () => {
+  modulesDo('Preload')
   state.overwrite = false
   state.output = undefined
   for(command of Object.keys(commands)){

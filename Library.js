@@ -1,7 +1,7 @@
 // Configuration Options
 
 if(state.useMods == undefined){
-    state.useMods = false // Set to true or false depending upon your desired startup behavior
+    state.useMods = true // Set to true or false depending upon your desired startup behavior
 }
 
 // Constants
@@ -110,6 +110,21 @@ if(state.modules == undefined){
     state.modules = []
 }
 
+/*
+const correctedEval = (code, additional = '') => {
+  delete _ERROR_ESCAPE
+  let retval = eval?.(`var _ERROR_ESCAPE = undefined;try{${code}}catch(e){_ERROR_ESCAPE = e}`)
+  if(_ERROR_ESCAPE != undefined){
+    throw _ERROR_ESCAPE
+    let err = new Error(additional, { cause: _ERROR_ESCAPE })
+    console.log(err)
+    console.log(Object.keys(err))
+    //throw err
+  }
+  return retval
+}
+*/
+
 const modulesDo = (hooktype) => {
   let stop = false
   
@@ -121,17 +136,17 @@ const modulesDo = (hooktype) => {
       mods = state.modules
     }
     
-    for(mod of mods){
-      if(mod.Enabled){
-        eval?.(mod.Library)
-      }
-    }
-
+    let stop = false
     for(mod of mods){
       if(mod.Enabled){
         let hook = mod[hooktype]
         if(hook){
-          ;({ text, stop = stop } = eval?.(hook));
+//          ;({ text, stop = stop } = correctedEval(mod.Library + ';' + hook, `In module ${mod.Module}'s ${hooktype} hook`));
+          if(hooktype == 'Preload'){
+            eval?.(mod.Library.trim() + ';' + hook.trim(), `In module ${mod.Module}'s ${hooktype} hook`)
+          }else{
+            ;({ text, stop = stop } = eval?.(mod.Library.trim() + ';' + hook.trim(), `In module ${mod.Module}'s ${hooktype} hook`));
+          }
         }
       }
     }
@@ -140,10 +155,10 @@ const modulesDo = (hooktype) => {
   return { text, stop }
 }
 
-const modTokenSaver = (s) => {
+const modTokenSaver = (text) => {
     state.overwrite = true
     state.output = empty
-    return { text: s }
+    return { text }
 }
 
 const uponMod = (name, cmd, action) => {
@@ -160,6 +175,7 @@ const makeMod = (s) => {
   let [
     Module,
     Enabled,
+    Preload,
     Library,
     Input,
     Context,
@@ -168,6 +184,7 @@ const makeMod = (s) => {
   ] = extractSections(s, [
     '// Module: ',
     '// Initially: ',
+    '// Preload',
     '// Library',
     '// Input',
     '// Context',
@@ -175,19 +192,19 @@ const makeMod = (s) => {
     '// End'
   ]);
   Module = Module.trim()
-  let newMod = { Module, Enabled: Enabled.trim() === 'true', Library, Input, Context, Output }
+  let newMod = { Module, Enabled: Enabled.trim() === 'true', Preload, Library, Input, Context, Output }
   state.modules.push(newMod)
   return newMod
 }
 
 // Chat Commands
 
-let commands = {
+var commands = {
   'help': {
     desc: 'Display (basic) descriptions of all chat commands.',
     fn: (garbage) => {
     state.overwrite = true
-    state.output =  Object.entries(commands).map(([name, cmd]) =>
+    state.output = Object.entries(commands).map(([name, cmd]) =>
       '/' + name + ' : ' + cmd.desc
     ).join('\n') + '\n'
   }},
@@ -220,7 +237,7 @@ let commands = {
     desc: 'Show the enable/disable state of a specific module.',
     fn: (name) => {
     return uponMod(name, 'lsmod', (sought) => {
-      return Response + name + ': ' + (state.modules[sought].enabled ? 'Enabled' : 'Disabled') + '\n'
+      return Response + name + ': ' + (state.modules[sought].Enabled ? 'Enabled' : 'Disabled') + '\n'
     })
   }}, 'modson': {
     desc: 'Enable mods globally.',
@@ -278,6 +295,13 @@ let commands = {
     return uponMod(name, 'rmmod', (sought) => {
         state.modules.splice(sought, 1)
     })
+  }}, 'reloadmods': {
+    desc: 'Reload all built-in modules.',
+    fn: (garbage) => {
+    state.modules.length = 0
+    state['InlineModules_ONCE'] = true
+    state.overwrite = true
+    state.output = empty
   }}
 }
 
@@ -293,12 +317,9 @@ function indexLast(str, substr){
 
 function once(key){
   key = key + '_ONCE'
-  if(key in state){
-    return false
-  }else{
-    state[key] = true
-    return true
-  }
+  var retval = (state[key] === undefined) || state[key]
+  state[key] = false
+  return retval
 }
 
 function arreq(a, b){
