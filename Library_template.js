@@ -353,29 +353,5 @@ function bootup(){
 bootup()
 
 if(once('InlineModules')){
-  makeMod((() => {
-    // Module: Dog_Example
-    // Initially: false
-
-    // Input
-
-    const modifier = (text) => {
-      return { text: text.replace('You', 'You and your dog') }
-    }
-
-    // End
-  }).toString())
-
-  makeMod((() => {
-    // Module: Ferret_Example
-    // Initially: false
-
-    // Input
-
-    const modifier = (text) => {
-      return { text: text.replace('You', 'You and your ferret') }
-    }
-
-    // End
-  }).toString())
+  // YOUR MODULES AUTOMATICALLY IMPORTED HERE
 }
