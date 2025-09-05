@@ -1,30 +1,35 @@
 #!`which sh`
 
-readmodules(){
-	ls ./modules/ | while read MODULE; do
-		TARGET='./modules/'${MODULE}
-		cat <<EOF
+exec 1>./Library.js
+exec 2>/dev/null
+
+set -e
+
+# Get the main body of the library
+sed -ne '/YOUR MODULES AUTOMATICALLY IMPORTED HERE/q;p' ./Library_template.js
+
+# Import all modules
+ls ./modules/ | while read MODULE; do
+	TARGET='./modules/'${MODULE}
+	cat <<EOF
 makeMod((() => {
   // Module: ${MODULE}
-  // Initially: `cat ${TARGET}/Initially.js 2>/dev/null || echo -n true`
+  // Initially: `cat ${TARGET}/Initially.js || echo -n true`
   // Preload
-`cat ${TARGET}/Preload.js 2>/dev/null`
+`cat ${TARGET}/Preload.js`
   // Library
-`cat ${TARGET}/Library.js 2>/dev/null`
+`cat ${TARGET}/Library.js`
   // Input
-`cat ${TARGET}/Input.js 2>/dev/null`
+`cat ${TARGET}/Input.js`
   // Context
-`cat ${TARGET}/Context.js 2>/dev/null`
+`cat ${TARGET}/Context.js`
   // Output
-`cat ${TARGET}/Output.js 2>/dev/null`
+`cat ${TARGET}/Output.js`
   // End
 }).toString())
 
 EOF
-		#sed -n '/TRIGGER/s/\(.*\)/\1/g;t append;p;b;:append;x;s/.*/FOUND/g;p;x;p' -
-	done
-}
+done
 
-ACCUM=`readmodules` # TODO: Use a different assignment scheme since this removes *all* newlines from the contents
-
-echo -n ${ACCUM}
+# Output anything after the insertion point
+sed -ne ': again; /YOUR MODULES AUTOMATICALLY IMPORTED HERE/b found;d;b again;: found;n;p;b found;' ./Library_template.js

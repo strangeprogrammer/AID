@@ -15,6 +15,7 @@ const empty = '\u200B'
 // Text and context parsing stuff
 
 function extractSections(text, headings){
+  // This function isn't perfect since it doesn't handle sections being out-of-order well
   let result = []
   let cursor = 0
   
@@ -190,8 +191,7 @@ const makeMod = (s) => {
     '// Context',
     '// Output',
     '// End'
-  ]);
-  Module = Module.trim()
+  ]).map((section) => section.trim());
   let newMod = { Module, Enabled: Enabled.trim() === 'true', Preload, Library, Input, Context, Output }
   state.modules.push(newMod)
   return newMod
