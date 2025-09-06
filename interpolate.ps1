@@ -3,30 +3,30 @@
 # This script generates 'Library.js' from 'Library_template.js' and modules in the directory '.\modules\'.
 
 $ErrorActionPreference = 'Stop'
-$templatePath = '.\Library_template.js'
-$insertionPoint = 'YOUR MODULES AUTOMATICALLY IMPORTED HERE'
 $outputFile = '.\Library.js'
 
 # Get the content of the template file.
-$templateContent = Get-Content -Path $templatePath
+$templateContent = Get-Content -Path '.\Library_template.js'
 
 # Find the line number of the insertion point.
-$insertionIndex = $templateContent | Select-String -Pattern $insertionPoint -SimpleMatch | Select-Object -ExpandProperty LineNumber
+$insertionIndex = $templateContent | Select-String -Pattern 'YOUR MODULES AUTOMATICALLY IMPORTED HERE' -SimpleMatch | Select-Object -ExpandProperty LineNumber
 
-# Separate the content into three parts: before the insertion point, the modules, and after the insertion point.
-$beforeInsertion = $templateContent[0..($insertionIndex - 2)]
-$afterInsertion = $templateContent[$insertionIndex..($templateContent.Count - 1)]
+# Output the content before the insertion point.
+$templateContent[0..($insertionIndex - 2)] | Out-File -FilePath $outputFile -Encoding utf8
 
-# Get the main body of the library (everything before the insertion point).
-$beforeInsertion | Out-File -FilePath $outputFile -Encoding utf8
+# Get the list of modules, preferring 'LoadOrder.txt' if it exists.
+$moduleNames = if (Test-Path -Path '.\modules\LoadOrder.txt') {
+	Get-Content -Path '.\modules\LoadOrder.txt' | Where-Object { -not $_.StartsWith('#') }
+} else {
+	(Get-ChildItem -Path '.\modules\' -Directory).Name
+}
 
-# Import all modules.
-Get-ChildItem -Path '.\modules\' -Directory | ForEach-Object {
-    $moduleName = $_.Name
-    $targetPath = $_.FullName
+# Output each module.
+foreach ($moduleName in $moduleNames) {
+	$targetPath = ".\modules\$moduleName"
 
-    # Using a Here-String for the module content.
-    $heredoc = @"
+	# Interpolate the module content into the following form:
+	$heredoc = @"
 makeMod((() => {
     // Module: $moduleName
     // Initially: $(if (Test-Path -Path "$targetPath\Initially.js") { Get-Content -Path "$targetPath\Initially.js" | Out-String } else { 'true' })
@@ -44,9 +44,9 @@ $(if (Test-Path -Path "$targetPath\Output.js") { Get-Content -Path "$targetPath\
 }).toString())
 "@
 
-    # Append the module content to the output file.
-    $heredoc | Out-File -FilePath $outputFile -Append -Encoding utf8
+	# Output the module content.
+	$heredoc | Out-File -FilePath $outputFile -Append -Encoding utf8
 }
 
-# Output anything after the insertion point.
-$afterInsertion | Out-File -FilePath $outputFile -Append -Encoding utf8
+# Output the content after the insertion point.
+$templateContent[$insertionIndex..($templateContent.Count - 1)] | Out-File -FilePath $outputFile -Append -Encoding utf8
