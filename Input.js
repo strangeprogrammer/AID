@@ -17,10 +17,7 @@ const modifier = () => {
   }
 
   // If no commands were found
-
-  ;({ text, stop } = modulesDo('Input'));
-  
-  return { text, stop }
+  return modulesDo('Input'))
 }
 
 modifier()
