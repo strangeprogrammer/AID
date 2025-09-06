@@ -9,7 +9,7 @@ set -e
 sed -ne '/YOUR MODULES AUTOMATICALLY IMPORTED HERE/q;p' ./Library_template.js
 
 # Import all modules
-ls ./modules/ | while read MODULE; do
+{ { cat ./modules/LoadOrder.txt | grep -v '^#' ; } || ls ./modules/ ; } | while read MODULE; do
 	TARGET='./modules/'${MODULE}
 	cat <<EOF
 makeMod((() => {
