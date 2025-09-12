@@ -201,20 +201,52 @@ const makeMod = (s) => {
 
 var commands = {
   'help': {
-    desc: 'Display (basic) descriptions of all chat commands.',
-    fn: (garbage) => {
+    desc: 'Display descriptions of all chat commands.' +
+          '\nIf arguments are not provided, show descriptions for all chat commands.' +
+          '\nIf arguments are provided, show descriptions for all chat commands with tags matching the arguments.' +
+          '\n',
+    tags: ['help'],
+    fn: (args) => {
+    args = args
+      .trim()
+      .split(' ')
+      .filter(arg => arg)           // Remove empty strings
+      .map(arg => arg.toLowerCase())// Lower case all arguments
+    
+    // Set subset check hack since AID uses an older version of JavaScript that doesn't support sets
+    const relevant = Object.entries(commands).filter(
+      ([name, cmd]) => args.every((arg) => cmd.tags.includes(arg))) // Automaticaly shows every command given an empty arguments list (base case of the 'every' function)
+    
     state.overwrite = true
-    state.output = Object.entries(commands).map(([name, cmd]) =>
+    state.output = relevant.map(([name, cmd]) =>
       '/' + name + ' : ' + cmd.desc
     ).join('\n') + '\n'
   }},
+  'tags': {
+    desc: 'Show all of the serachable help tags.',
+    tags: ['help'],
+    fn: (args) => {
+    const alltags = Object.values(commands).map(cmd => cmd.tags)
+
+    // Set union hack since AID uses an older version of JavaScript that doesn't support sets
+    let result = {}
+    for(cmdtags of alltags){
+      Object.assign(result,
+        Object.fromEntries(cmdtags.map(tag => [tag, 1]))) // Using 'undefined' as a value is a bad idea for membership checking reasons
+    }
+
+    state.overwrite = true
+    state.output = Object.keys(result).join(' ') + '\n'
+  }},
   'js ': {
     desc: 'Evaluate a JavaScript expression and return the result.',
+    tags: ['js', 'javascript', 'JavaScript'],
     fn: (args) => {
     state.overwrite = true
     state.output = eval?.(args)
   }}, 'set ': {
     desc: 'Set a variable (currently, only constants are supported) to be set before any other code runs.',
+    tags: ['js', 'javascript', 'JavaScript', 'startup'],
     fn:(args) => {
     state.overwrite = true
     state.output = empty
@@ -224,6 +256,7 @@ var commands = {
     state.boot.push('globalThis.' + k + ' = ' + v)
   }}, 'lsmods': {
     desc: 'List all modules in execution order and all enabled/disabled states.',
+    tags: ['module', 'modules', 'info'],
     fn: (garbage) => {
     let result = 'Mods: ' + (state.useMods ? 'Enabled' : 'Disabled') + '\n'
     let mods = state.modules
@@ -235,12 +268,14 @@ var commands = {
     state.output = result
   }}, 'lsmod ': {
     desc: 'Show the enable/disable state of a specific module.',
+    tags: ['module', 'modules', 'info'],
     fn: (name) => {
     return uponMod(name, 'lsmod', (sought) => {
       return Response + name + ': ' + (state.modules[sought].Enabled ? 'Enabled' : 'Disabled') + '\n'
     })
   }}, 'modson': {
     desc: 'Enable mods globally.',
+    tags: ['module', 'modules'],
     fn: (args) => {
     state.overwrite = true
     state.output = empty
@@ -248,6 +283,7 @@ var commands = {
     return { text: You + '/modson successfully.\n' }
   }}, 'modsoff': {
     desc: 'Disable mods globally.',
+    tags: ['module', 'modules'],
     fn: (args) => {
     state.overwrite = true
     state.output = empty
@@ -255,10 +291,12 @@ var commands = {
     return { text: You + '/modsoff successfully.\n' }
   }}, 'addmod ': {
     desc: 'Add a new module to the end of the modules list via a \'do\' action.',
+    tags: ['module', 'modules'],
     fn: (args) => {
     return modTokenSaver(Response + 'mkmod \'' + makeMod(args).Module + '\' successful.')
   }}, 'modon ': {
     desc: 'Enable specific mods.',
+    tags: ['module', 'modules'],
     fn: (names) => {
     names = names.split(' ')
     let missing
@@ -275,6 +313,7 @@ var commands = {
     }
   }}, 'modoff ': {
     desc: 'Disable specific mods.',
+    tags: ['module', 'modules'],
     fn: (names) => {
     names = names.split(' ')
     let missing
@@ -291,12 +330,14 @@ var commands = {
     }
   }}, 'rmmod ': {
     desc: 'Remove a module from the modules list.',
+    tags: ['module', 'modules'],
     fn: (name) => {
     return uponMod(name, 'rmmod', (sought) => {
         state.modules.splice(sought, 1)
     })
   }}, 'reloadmods': {
     desc: 'Reload all built-in modules.',
+    tags: ['module', 'modules'],
     fn: (garbage) => {
     state.modules.length = 0
     state['InlineModules_ONCE'] = true
