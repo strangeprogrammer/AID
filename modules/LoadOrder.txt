@@ -2,3 +2,4 @@
 # The following lines demonstrate that modules can be loaded in a specified order (read from top to bottom):
 Ferret_Example
 Dog_Example
+Error_Example

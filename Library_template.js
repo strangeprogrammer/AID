@@ -129,31 +129,34 @@ const correctedEval = (code, additional = '') => {
 
 const modulesDo = (hooktype) => {
   let stop = false
+  let backup = { text, stop }
 
   if (state.useMods) {
-    let mods
-    if (hooktype === 'Output') {
-      mods = [...state.modules].reverse()
-    } else {
-      mods = state.modules
-    }
+    try {
+      let mods = [...state.modules]
+      if (hooktype === 'Output') {
+        mods.reverse()
+      }
 
-    let stop = false
-    for (mod of mods) {
-      if (mod.Enabled) {
-        let hook = mod[hooktype]
-        if (hook) {
-          //          ;({ text, stop = stop } = correctedEval(mod.Library + ';' + hook, `In module ${mod.Module}'s ${hooktype} hook`));
-          if (hooktype == 'Preload') {
-            eval?.(mod.Library.trim() + ';' + hook.trim(), `In module ${mod.Module}'s ${hooktype} hook`)
-          } else {
-            ; ({ text, stop = stop } = eval?.(mod.Library.trim() + ';' + hook.trim(), `In module ${mod.Module}'s ${hooktype} hook`));
+      for (mod of mods) {
+        if (mod.Enabled) {
+          let code = mod[hooktype].trim()
+          if (code) {
+            if (hooktype === 'Library') {
+              eval?.(code, `In module ${mod.Module}'s Library`)
+            } else {
+              ; ({ text, stop = stop } = eval?.(code, `In module ${mod.Module}'s ${hooktype} hook`));
+            }
           }
         }
       }
+    } catch (e) {
+      state.useMods = false
+      ;({ text, stop } = backup);
+      state.overwrite = true
+      state.output = e.toString() + '\n\nDisabling modules globally.'
     }
   }
-
   return { text, stop }
 }
 
@@ -177,7 +180,6 @@ const makeMod = (s) => {
   let [
     Module,
     Enabled,
-    Preload,
     Library,
     Input,
     Context,
@@ -186,14 +188,13 @@ const makeMod = (s) => {
   ] = extractSections(s, [
     '// Module: ',
     '// Initially: ',
-    '// Preload',
-    '// Library',
-    '// Input',
-    '// Context',
-    '// Output',
+    '// Library\n',
+    '// Input\n',
+    '// Context\n',
+    '// Output\n',
     '// End'
   ]).map((section) => section.trim());
-  let newMod = { Module, Enabled: Enabled.trim() === 'true', Preload, Library, Input, Context, Output }
+  let newMod = { Module, Enabled: Enabled.trim() === 'true', Library, Input, Context, Output }
   state.modules.push(newMod)
   return newMod
 }
@@ -389,6 +390,48 @@ function arreq(a, b) {
   return true
 }
 
+function collate(...iterables) {
+  // Reimplementation of Python's 'zip' function, but not lazy because I don't want to figure out the half-assed way that JavaScript does laziness right now
+
+  // EXAMPLE CODE:
+
+  //let data = [
+  //    [1, 2],
+  //    [3, 4],
+  //    [5, 6],
+  //    [7, 8],
+  //    [9, 0],
+  //]
+
+  //let output = collate(...data)
+  //console.log('------------------')
+  //console.log(data);
+  //console.log('------------------')
+  //console.log(output)
+
+  // EXAMPLE OUTPUT:
+
+  //------------------
+  //[ [ 1, 2 ], [ 3, 4 ], [ 5, 6 ], [ 7, 8 ], [ 9, 0 ] ]
+  //------------------
+  //[ [ 1, 3, 5, 7, 9 ], [ 2, 4, 6, 8, 0 ] ]
+
+  if(iterables.length === 0){
+      return []
+  }
+
+  let end = Math.min(...iterables.map(it => it.length))
+  let result = []
+  for (let i = 0; i < end; i++) {
+    let entry = []
+    for (let j = 0; j < iterables.length; j++) {
+      entry.push(iterables[j][i])
+    }
+    result.push(entry)
+  }
+  return result
+}
+
 // Code execution & statefulness
 
 if (state.boot === undefined) {
@@ -410,3 +453,5 @@ bootup()
 if (once('InlineModules')) {
   // YOUR MODULES AUTOMATICALLY IMPORTED HERE
 }
+
+modulesDo('Library')

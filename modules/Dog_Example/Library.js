@@ -1,0 +1,1 @@
+var dog_var = ferret_var + 7 // 15 -- MUST use 'var' instead of 'const' or 'let'

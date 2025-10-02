@@ -1,0 +1,1 @@
+var trolled = functionthatdoesntexist(69, 420) // Cause an error to test error handling
